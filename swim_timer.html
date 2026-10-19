@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Swim Timer</title>
+  <style>
+    :root {
+      /* User's Exact Palette */
+      --dark-blue: #003263;
+      --light-blue: #6CAEE0;
+      --yellow-main: #FEE148;
+      --yellow-soft: #FFF0B0;
+      
+      /* Derived aesthetic surfaces & glows */
+      --bg-gradient: radial-gradient(circle at 50% 0%, #003263 0%, #001f3f 55%, #000f1f 100%);
+      --card-bg: rgba(0, 50, 99, 0.65);
+      --card-bg-elevated: rgba(0, 50, 99, 0.85);
+      --card-border: rgba(108, 174, 224, 0.25);
+      --card-border-glow: rgba(108, 174, 224, 0.45);
+      
+      --text-main: #ffffff;
+      --text-muted: #cbd5e1;
+      --text-dim: #94a3b8;
+      
+      /* Start Button: #6CAEE0 (Light Blue) */
+      --btn-start-bg: linear-gradient(135deg, #6CAEE0 0%, #4a96d1 100%);
+      --btn-start-glow: 0 6px 22px rgba(108, 174, 224, 0.45);
+      --btn-start-text: #002244;
+
+      /* Stop Button: #FFF0B0 & #FEE148 (Yellows) */
+      --btn-stop-bg: linear-gradient(135deg, #FFF0B0 0%, #FEE148 100%);
+      --btn-stop-glow: 0 6px 22px rgba(254, 225, 72, 0.45);
+      --btn-stop-text: #002b54;
+
+      /* Reset / New Race Button */
+      --btn-reset-bg: linear-gradient(135deg, #6CAEE0 0%, #003263 100%);
+      --btn-reset-glow: 0 6px 20px rgba(108, 174, 224, 0.35);
+      --btn-reset-text: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 14px;
+      touch-action: manipulation;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Aesthetic Stopwatch Display */
+    .timer-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 20px;
+      padding: 20px 12px;
+      text-align: center;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(108, 174, 224, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .timer-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 15%;
+      right: 15%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(108, 174, 224, 0.6), transparent);
+    }
+
+    .timer-digits {
+      font-variant-numeric: tabular-nums;
+      font-size: 3.85rem;
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      color: var(--text-main);
+      line-height: 1;
+      text-shadow: 0 0 24px rgba(108, 174, 224, 0.35);
+    }
+
+    .timer-digits .ms {
+      font-size: 2.35rem;
+      color: var(--yellow-main);
+      font-weight: 700;
+      text-shadow: 0 0 16px rgba(254, 225, 72, 0.4);
+    }
+
+    /* 7 Curved Rectangular Buttons Section */
+    .buttons-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Button 7: Start / Stop Button */
+    .btn-start-stop {
+      width: 100%;
+      height: 64px;
+      border-radius: 16px;
+      border: none;
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.1s ease, box-shadow 0.2s ease, filter 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-start-stop:active {
+      transform: scale(0.97);
+    }
+
+    /* Light Blue Start Button (#6CAEE0) */
+    .btn-start-stop.state-start {
+      background: var(--btn-start-bg);
+      color: var(--btn-start-text);
+      box-shadow: var(--btn-start-glow), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    }
+
+    /* Yellow Stop Button (#FEE148 & #FFF0B0) */
+    .btn-start-stop.state-stop {
+      background: var(--btn-stop-bg);
+      color: var(--btn-stop-text);
+      box-shadow: var(--btn-stop-glow), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+
+    /* Reset / New Race State */
+    .btn-start-stop.state-reset {
+      background: var(--btn-reset-bg);
+      color: var(--btn-reset-text);
+      box-shadow: var(--btn-reset-glow), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    }
+
+    /* Buttons 1-6: 6 Lane Buttons in a curved rectangular grid */
+    .lanes-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .btn-lane {
+      min-height: 88px;
+      border-radius: 16px;
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      color: var(--text-main);
+      padding: 12px 14px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: flex-start;
+      text-align: left;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(108, 174, 224, 0.1);
+      transition: transform 0.08s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .btn-lane:active {
+      transform: scale(0.96);
+    }
+
+    .btn-lane.active-tap {
+      border-color: var(--yellow-main) !important;
+      background: rgba(254, 225, 72, 0.22) !important;
+      box-shadow: 0 0 20px rgba(254, 225, 72, 0.45) !important;
+    }
+
+    .btn-lane.has-times {
+      border-color: rgba(108, 174, 224, 0.55);
+      background: var(--card-bg-elevated);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), 0 0 14px rgba(108, 174, 224, 0.2);
+    }
+
+    .lane-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .lane-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .lane-status {
+      font-size: 0.82rem;
+      font-family: 'SF Mono', Monaco, Menlo, Consolas, monospace;
+      color: var(--light-blue);
+      line-height: 1.3;
+      width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 500;
+    }
+
+    .lane-status.empty {
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 0.78rem;
+    }
+
+    /* Aesthetic Results Table Card */
+    .results-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 18px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(108, 174, 224, 0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .results-header-text {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--yellow-main);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .results-header-text::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(108, 174, 224, 0.15);
+      margin-left: 8px;
+    }
+
+    table.times-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      text-align: left;
+    }
+
+    table.times-table th {
+      color: var(--light-blue);
+      font-weight: 700;
+      padding: 6px 4px 8px 4px;
+      border-bottom: 1px solid rgba(108, 174, 224, 0.2);
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.8px;
+    }
+
+    table.times-table td {
+      padding: 8px 4px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      vertical-align: middle;
+    }
+
+    table.times-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .lane-cell {
+      font-weight: 800;
+      color: var(--text-main);
+      font-size: 0.95rem;
+    }
+
+    .time-chip {
+      font-family: 'SF Mono', Monaco, Menlo, Consolas, monospace;
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    .time-chip.t1 {
+      color: var(--light-blue);
+      border-left: 2px solid var(--light-blue);
+      background: rgba(108, 174, 224, 0.1);
+    }
+
+    .time-chip.t2 {
+      color: var(--yellow-main);
+      border-left: 2px solid var(--yellow-main);
+      background: rgba(254, 225, 72, 0.12);
+    }
+
+    .time-empty {
+      color: var(--text-dim);
+    }
+
+    .rank-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+      display: inline-block;
+      letter-spacing: 0.4px;
+    }
+
+    .rank-tag.first {
+      background: rgba(254, 225, 72, 0.2);
+      color: var(--yellow-main);
+      border: 1px solid rgba(254, 225, 72, 0.5);
+      box-shadow: 0 0 10px rgba(254, 225, 72, 0.25);
+    }
+
+    .rank-tag.second {
+      background: rgba(108, 174, 224, 0.2);
+      color: var(--light-blue);
+      border: 1px solid rgba(108, 174, 224, 0.5);
+    }
+
+    .rank-tag.third {
+      background: rgba(255, 240, 176, 0.18);
+      color: var(--yellow-soft);
+      border: 1px solid rgba(255, 240, 176, 0.4);
+    }
+
+    /* Aesthetic Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: rgba(0, 50, 99, 0.95);
+      border: 1px solid var(--yellow-main);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: var(--text-main);
+      padding: 9px 18px;
+      border-radius: 999px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 12px rgba(254, 225, 72, 0.3);
+      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 100;
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- Master Timer Display -->
+    <div class="timer-card">
+      <div class="timer-digits" id="timerDisplay">00:00<span class="ms">.00</span></div>
+    </div>
+
+    <!-- The 7 Curved Rectangular Buttons -->
+    <div class="buttons-container">
+      
+      <!-- Button 7: Start / Stop Button -->
+      <button class="btn-start-stop state-start" id="startStopBtn" aria-label="Start or Stop Timing">
+        <span id="startStopText">START</span>
+      </button>
+
+      <!-- Buttons 1 to 6: 6 Lane Buttons in 2 columns (Left: Lanes 1, 2, 3 | Right: Lanes 4, 5, 6) -->
+      <div class="lanes-grid" id="lanesGrid">
+        <!-- Row 1: Lane 1 (Left) and Lane 4 (Right) -->
+        <button class="btn-lane" data-lane="1" id="laneBtn1" aria-label="Lane 1">
+          <div class="lane-title">
+            <span class="lane-dot" style="background:#6CAEE0; color:#6CAEE0;"></span>
+            LANE 1
+          </div>
+          <div class="lane-status empty" id="status1">Tap at finish</div>
+        </button>
+
+        <button class="btn-lane" data-lane="4" id="laneBtn4" aria-label="Lane 4">
+          <div class="lane-title">
+            <span class="lane-dot" style="background:#FEE148; color:#FEE148;"></span>
+            LANE 4
+          </div>
+          <div class="lane-status empty" id="status4">Tap at finish</div>
+        </button>
+
+        <!-- Row 2: Lane 2 (Left) and Lane 5 (Right) -->
+        <button class="btn-lane" data-lane="2" id="laneBtn2" aria-label="Lane 2">
+          <div class="lane-title">
+            <span class="lane-dot" style="background:#FFF0B0; color:#FFF0B0;"></span>
+            LANE 2
+          </div>
+          <div class="lane-status empty" id="status2">Tap at finish</div>
+        </button>
+
+        <button class="btn-lane" data-lane="5" id="laneBtn5" aria-label="Lane 5">
+          <div class="lane-title">
+            <span class="lane-dot" style="background:#f59e0b; color:#f59e0b;"></span>
+            LANE 5
+          </div>
+          <div class="lane-status empty" id="status5">Tap at finish</div>
+        </button>
+
+        <!-- Row 3: Lane 3 (Left) and Lane 6 (Right) -->
+        <button class="btn-lane" data-lane="3" id="laneBtn3" aria-label="Lane 3">
+          <div class="lane-title">
+            <span class="lane-dot" style="background:#38bdf8; color:#38bdf8;"></span>
+            LANE 3
+          </div>
+          <div class="lane-status empty" id="status3">Tap at finish</div>
+        </button>
+
+        <button class="btn-lane" data-lane="6" id="laneBtn6" aria-label="Lane 6">
+          <div class="lane-title">
+            <span class="lane-dot" style="background:#eab308; color:#eab308;"></span>
+            LANE 6
+          </div>
+          <div class="lane-status empty" id="status6">Tap at finish</div>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Timesheet Table: First column labeled 1-6 with lane times -->
+    <div class="results-card" id="resultsCard">
+      <div class="results-header-text">Lane Timesheet</div>
+      <table class="times-table" id="timesTable">
+        <thead>
+          <tr>
+            <th style="width: 25%;">Lane</th>
+            <th style="width: 30%;">Time 1 (25m)</th>
+            <th style="width: 30%;">Time 2 (50m)</th>
+            <th style="width: 15%;">Place</th>
+          </tr>
+        </thead>
+        <tbody id="timesTableBody">
+          <!-- Populated by JavaScript -->
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- Toast for feedback -->
+  <div class="toast" id="toastMessage">
+    <span id="toastText"></span>
+  </div>
+
+  <script>
+    (function() {
+      // Application State
+      let state = 'ready'; // 'ready' | 'running' | 'stopped'
+      let startTime = 0;
+      let elapsedTime = 0;
+      let timerInterval = null;
+      
+      // Lane times array: 6 lanes, each holds an array of timestamps (in ms)
+      let laneTimes = [[], [], [], [], [], []];
+
+      // Audio feedback using Web Audio API
+      let audioCtx = null;
+      function playTone(freq, duration) {
+        try {
+          if (!audioCtx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) audioCtx = new AudioContext();
+          }
+          if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+          }
+          if (audioCtx) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+          }
+        } catch (e) {}
+      }
+
+      function triggerHaptic(duration) {
+        try {
+          if ('vibrate' in navigator) {
+            navigator.vibrate(duration || 35);
+          }
+        } catch (e) {}
+      }
+
+      // DOM Elements
+      const timerDisplay = document.getElementById('timerDisplay');
+      const startStopBtn = document.getElementById('startStopBtn');
+      const startStopText = document.getElementById('startStopText');
+      const timesTableBody = document.getElementById('timesTableBody');
+      const toastMessage = document.getElementById('toastMessage');
+      const toastText = document.getElementById('toastText');
+
+      // The 6 Lane Buttons
+      const laneBtn1 = document.getElementById('laneBtn1');
+      const laneBtn2 = document.getElementById('laneBtn2');
+      const laneBtn3 = document.getElementById('laneBtn3');
+      const laneBtn4 = document.getElementById('laneBtn4');
+      const laneBtn5 = document.getElementById('laneBtn5');
+      const laneBtn6 = document.getElementById('laneBtn6');
+      const allLaneBtns = [laneBtn1, laneBtn2, laneBtn3, laneBtn4, laneBtn5, laneBtn6];
+
+      // Helper: Format milliseconds as mm:ss.ss
+      function formatTime(ms) {
+        if (ms === null || ms === undefined || isNaN(ms)) return '—';
+        const totalHundredths = Math.floor(ms / 10);
+        const hundredths = totalHundredths % 100;
+        const totalSeconds = Math.floor(totalHundredths / 100);
+        const seconds = totalSeconds % 60;
+        const minutes = Math.floor(totalSeconds / 60);
+
+        const mStr = String(minutes).padStart(2, '0');
+        const sStr = String(seconds).padStart(2, '0');
+        const hStr = String(hundredths).padStart(2, '0');
+
+        return `${mStr}:${sStr}.${hStr}`;
+      }
+
+      function showToast(msg) {
+        toastText.textContent = msg;
+        toastMessage.classList.add('show');
+        clearTimeout(showToast.timeout);
+        showToast.timeout = setTimeout(() => {
+          toastMessage.classList.remove('show');
+        }, 1800);
+      }
+
+      // Update Timer Display
+      function updateTimerDisplay() {
+        const now = (state === 'running') ? (Date.now() - startTime + elapsedTime) : elapsedTime;
+        const totalHundredths = Math.floor(now / 10);
+        const hundredths = totalHundredths % 100;
+        const totalSeconds = Math.floor(totalHundredths / 100);
+        const seconds = totalSeconds % 60;
+        const minutes = Math.floor(totalSeconds / 60);
+
+        const mStr = String(minutes).padStart(2, '0');
+        const sStr = String(seconds).padStart(2, '0');
+        const hStr = String(hundredths).padStart(2, '0');
+
+        timerDisplay.innerHTML = `${mStr}:${sStr}<span class="ms">.${hStr}</span>`;
+      }
+
+      // Start timing
+      function startTimer() {
+        state = 'running';
+        startTime = Date.now();
+        elapsedTime = 0;
+
+        startStopBtn.classList.remove('state-start', 'state-reset');
+        startStopBtn.classList.add('state-stop');
+        startStopText.textContent = 'STOP';
+
+        playTone(600, 0.12);
+        triggerHaptic(50);
+
+        clearInterval(timerInterval);
+        timerInterval = setInterval(updateTimerDisplay, 31);
+      }
+
+      // Stop timing
+      function stopTimer() {
+        state = 'stopped';
+        clearInterval(timerInterval);
+        elapsedTime += Date.now() - startTime;
+        updateTimerDisplay();
+
+        // When stopped, button changes to START NEW RACE for the next heat
+        startStopBtn.classList.remove('state-stop');
+        startStopBtn.classList.add('state-reset');
+        startStopText.textContent = 'START NEW RACE';
+
+        playTone(440, 0.2);
+        triggerHaptic([50, 40, 50]);
+
+        renderTimesTable();
+        showToast('Race finished! Check timesheet below.');
+      }
+
+      // Reset to Ready state
+      function resetTimer() {
+        state = 'ready';
+        elapsedTime = 0;
+        startTime = 0;
+        laneTimes = [[], [], [], [], [], []];
+
+        updateTimerDisplay();
+
+        startStopBtn.classList.remove('state-stop', 'state-reset');
+        startStopBtn.classList.add('state-start');
+        startStopText.textContent = 'START';
+
+        for (let i = 1; i <= 6; i++) {
+          updateLaneButtonUI(i);
+        }
+        renderTimesTable();
+      }
+
+      // Start/Stop button click handler
+      startStopBtn.addEventListener('click', function() {
+        if (state === 'ready') {
+          startTimer();
+        } else if (state === 'running') {
+          stopTimer();
+        } else if (state === 'stopped') {
+          // One tap resets and starts a fresh new race immediately!
+          resetTimer();
+          startTimer();
+        }
+      });
+
+      // Record a tap on lane 1-6
+      function recordLaneTap(laneNumber) {
+        if (state !== 'running') {
+          if (state === 'ready') {
+            showToast('Click START first!');
+            playTone(280, 0.08);
+          } else {
+            showToast('Race stopped. Click START NEW RACE.');
+          }
+          return;
+        }
+
+        const currentElapsed = Date.now() - startTime + elapsedTime;
+        const laneIdx = laneNumber - 1;
+
+        laneTimes[laneIdx].push(currentElapsed);
+
+        playTone(850 + (laneNumber * 40), 0.07);
+        triggerHaptic(35);
+
+        // Visual flash on button
+        const btn = document.getElementById('laneBtn' + laneNumber);
+        if (btn) {
+          btn.classList.add('active-tap');
+          setTimeout(() => btn.classList.remove('active-tap'), 150);
+        }
+
+        updateLaneButtonUI(laneNumber);
+        renderTimesTable();
+
+        const count = laneTimes[laneIdx].length;
+        const lapName = count === 1 ? '25m' : (count === 2 ? '50m' : `Lap ${count}`);
+        showToast(`Lane ${laneNumber} (${lapName}): ${formatTime(currentElapsed)}`);
+      }
+
+      // Update individual lane button UI
+      function updateLaneButtonUI(laneNumber) {
+        const laneIdx = laneNumber - 1;
+        const times = laneTimes[laneIdx];
+        const statusDiv = document.getElementById('status' + laneNumber);
+        const laneBtn = document.getElementById('laneBtn' + laneNumber);
+
+        if (!statusDiv || !laneBtn) return;
+
+        if (times.length === 0) {
+          statusDiv.className = 'lane-status empty';
+          statusDiv.textContent = 'Tap at finish';
+          laneBtn.classList.remove('has-times');
+        } else {
+          statusDiv.className = 'lane-status';
+          laneBtn.classList.add('has-times');
+
+          if (times.length === 1) {
+            statusDiv.textContent = `25m: ${formatTime(times[0])}`;
+          } else {
+            statusDiv.textContent = `25m: ${formatTime(times[0])} | 50m: ${formatTime(times[1])}`;
+          }
+        }
+      }
+
+      // Attach click events to Lane buttons 1-6
+      allLaneBtns.forEach((btn) => {
+        if (btn) {
+          btn.addEventListener('click', function() {
+            const laneNum = parseInt(btn.getAttribute('data-lane'), 10);
+            recordLaneTap(laneNum);
+          });
+        }
+      });
+
+      // Calculate finish ranks across lanes based on final touch
+      function calculateFinishRanks() {
+        const finishers = [];
+        for (let l = 0; l < 6; l++) {
+          const times = laneTimes[l];
+          if (times.length > 0) {
+            const finalTime = times[times.length - 1];
+            finishers.push({
+              lane: l + 1,
+              time: finalTime
+            });
+          }
+        }
+
+        finishers.sort((a, b) => a.time - b.time);
+
+        const ranks = {};
+        finishers.forEach((f, idx) => {
+          ranks[f.lane] = idx + 1;
+        });
+
+        return ranks;
+      }
+
+      // Render the Results Table
+      function renderTimesTable() {
+        timesTableBody.innerHTML = '';
+        const ranks = calculateFinishRanks();
+
+        for (let lane = 1; lane <= 6; lane++) {
+          const times = laneTimes[lane - 1];
+          const tr = document.createElement('tr');
+
+          // Lane column
+          const tdLane = document.createElement('td');
+          tdLane.className = 'lane-cell';
+          tdLane.textContent = `Lane ${lane}`;
+          tr.appendChild(tdLane);
+
+          // Time 1 (25m)
+          const tdTime1 = document.createElement('td');
+          if (times.length >= 1) {
+            tdTime1.innerHTML = `<span class="time-chip t1">${formatTime(times[0])}</span>`;
+          } else {
+            tdTime1.innerHTML = `<span class="time-empty">—</span>`;
+          }
+          tr.appendChild(tdTime1);
+
+          // Time 2 (50m)
+          const tdTime2 = document.createElement('td');
+          if (times.length >= 2) {
+            tdTime2.innerHTML = `<span class="time-chip t2">${formatTime(times[1])}</span>`;
+          } else {
+            tdTime2.innerHTML = `<span class="time-empty">—</span>`;
+          }
+          tr.appendChild(tdTime2);
+
+          // Place / Rank
+          const tdRank = document.createElement('td');
+          if (times.length > 0 && ranks[lane]) {
+            const rank = ranks[lane];
+            let tagClass = '';
+            let ordinal = rank + 'th';
+            if (rank === 1) { tagClass = 'first'; ordinal = '1st'; }
+            else if (rank === 2) { tagClass = 'second'; ordinal = '2nd'; }
+            else if (rank === 3) { tagClass = 'third'; ordinal = '3rd'; }
+
+            tdRank.innerHTML = `<span class="rank-tag ${tagClass}">${ordinal}</span>`;
+          } else {
+            tdRank.innerHTML = `<span class="time-empty">—</span>`;
+          }
+          tr.appendChild(tdRank);
+
+          timesTableBody.appendChild(tr);
+        }
+      }
+
+      // Initial Setup
+      renderTimesTable();
+      updateTimerDisplay();
+
+    })();
+  </script>
+</body>
+</html>
